@@ -1,10 +1,10 @@
-# Ioniq5CamTest — Camera Feed Probe 0.1.0
+# Ioniq5CamTest — Camera Feed Probe 0.1.1
 
 An experimental Nemesis module for identifying camera feeds on the owner's 2023 Ioniq 5 Gen5W head unit. **Built and tested with an emulator; not yet validated on the vehicle.**
 
 ## Downloads
 
-Get the [v0.1.0 experimental prerelease](https://github.com/apbreck/Ioniq5CamTest/releases/tag/v0.1.0). Download `camera-probe-0.1.0-usb.zip` for USB installation, or `camera-probe-0.1.0.zip` for ADB installation. Verify downloads against the release `SHA256SUMS.txt`. The APK alone is insufficient.
+Get the [v0.1.1 experimental prerelease](https://github.com/apbreck/Ioniq5CamTest/releases/tag/v0.1.1). Download `camera-probe-0.1.1-usb.zip` for USB installation, or `camera-probe-0.1.1.zip` for ADB installation. Verify downloads against the release `SHA256SUMS.txt`. The APK alone is insufficient.
 
 ## What it does
 
@@ -24,7 +24,7 @@ Keep the vehicle parked for testing. Pause recording in the Rear Dashcam app fir
 
 USB installation:
 
-1. Download `dist/camera-probe-0.1.0-usb.zip` and extract its contents to the root of a FAT32/exFAT USB drive. Use one Nemesis installer descriptor on the drive at a time.
+1. Download `dist/camera-probe-0.1.1-usb.zip` and extract its contents to the root of a FAT32/exFAT USB drive. Use one Nemesis installer descriptor on the drive at a time.
 2. With Nemesis already installed and the head unit fully started, insert the drive and confirm the installation.
 3. Open **Camera Feed Probe** from the launcher or Nemesis Manager → Packages → Camera Feed Probe → Launch.
 
@@ -32,8 +32,8 @@ ADB alternative, from the platform-tools folder:
 
 ```sh
 ./adb connect 172.20.10.2:5555
-./adb -s 172.20.10.2:5555 push camera-probe-0.1.0.zip /data/local/tmp/
-./adb -s 172.20.10.2:5555 shell '/system/xbin/nemesis install --update /data/local/tmp/camera-probe-0.1.0.zip'
+./adb -s 172.20.10.2:5555 push camera-probe-0.1.1.zip /data/local/tmp/
+./adb -s 172.20.10.2:5555 shell '/system/xbin/nemesis install --update /data/local/tmp/camera-probe-0.1.1.zip'
 ./adb -s 172.20.10.2:5555 shell am start -n dev.cameraprobe/.MainActivity
 ```
 
@@ -51,7 +51,19 @@ Use the Nemesis ZIP for installation. Installing the APK alone does not provide 
 
 The preview is cleared when stopped. Colors and orientation are the raw driver output, without a mirror correction; note differences in the report. A changing image fingerprint can be sensor noise, not physical motion. Camera-test sizes are restricted to supported values no larger than 1280×720.
 
-## Retrieve the report
+## Export the report to USB
+
+Insert a FAT32/exFAT USB drive, save the feed identifications you want included, and tap **Export report**. Preview stops for export. The helper writes a new file such as:
+
+```text
+CameraFeedProbe/camera-probe-20261028-143000-a1b2c3d4.json
+```
+
+The app confirms the full USB path after the file is written and synced. It checks the mounted drives at `/storage/usb0`, `/storage/usb1`, and `/storage/usb2`, and uses the first writable one. Missing or unwritable drives produce an error; the app does not report success for an internal-only copy. Every export has a unique name, preserving previous reports. Wait for USB activity to finish before removing the drive.
+
+The report contains camera metadata, saved labels/notes, session history, errors, and the final test state. It contains no camera images. USB export does not need ADB.
+
+An internal report cache and session history remain available for troubleshooting over ADB:
 
 ```sh
 ./adb -s 172.20.10.2:5555 pull /data/nemesis/camera-probe/report.json ./camera-probe-report.json
@@ -59,7 +71,7 @@ The preview is cleared when stopped. Colors and orientation are the raw driver o
 ./adb -s 172.20.10.2:5555 pull /data/nemesis/camera-probe-worker.log ./camera-probe-worker.log
 ```
 
-Reports remain after uninstall so they can be retrieved; UI labels in Android app preferences are removed when the APK is uninstalled. Save/export before uninstalling. No Internet permissions, recording, audio capture, or automatic image upload are included.
+Cached diagnostics remain after uninstall so they can be retrieved; UI labels in Android app preferences are removed when the APK is uninstalled. Export before uninstalling. No Internet permissions, recording, audio capture, or automatic image upload are included.
 
 ## Stop behavior and limitations
 

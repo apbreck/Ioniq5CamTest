@@ -18,6 +18,9 @@ public final class MainActivity extends Activity {
     private ImageView image;
     private EditText label,notes;
     private Button start;
+    private Button export;
+    private String exportId="";
+    private long exportStarted;
     private boolean resumed=false,requested=false;
     private String session="",requestApi="",requestSize="auto",selection="";
     private int requestId=-1;
@@ -31,7 +34,7 @@ public final class MainActivity extends Activity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setFocusableInTouchMode(true);root.setPadding(20,12,20,12);root.setBackgroundColor(bg);setContentView(root);
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);root.addView(top);
         TextView title=text("Camera Feed Probe",25,foreground);top.addView(title,new LinearLayout.LayoutParams(0,52,1));
-        Button export=button("Export report");top.addView(export);export.setOnClickListener(new View.OnClickListener(){public void onClick(View v){exportReport();}});
+        export=button("Export report");top.addView(export);export.setOnClickListener(new View.OnClickListener(){public void onClick(View v){exportReport();}});
         TextView hint=text("Parked tests • one feed at a time • 30 seconds per test • factory camera takes priority",15,subtle);root.addView(hint);
         LinearLayout body=new LinearLayout(this);root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         ScrollView controls=new ScrollView(this);body.addView(controls,new LinearLayout.LayoutParams(430,-1));
@@ -86,6 +89,7 @@ public final class MainActivity extends Activity {
     }
     private final Runnable poll=new Runnable(){public void run(){
         if(!resumed)return;if(requested)writeRequest();
+        checkExportResult();
         if(feeds.isEmpty()&&new File(Files.ROOT,"catalogue.json").canRead())loadFeeds();
         try{
             JSONObject s=Files.json("status.json");lastStatus=s;
@@ -114,13 +118,33 @@ public final class MainActivity extends Activity {
     }
     private void exportReport(){
         try{
+            end();
             JSONObject out=new JSONObject();out.put("createdAt",System.currentTimeMillis());out.put("catalogue",Files.json("catalogue.json"));out.put("lastStatus",lastStatus);
             String[] verdicts={"Unconfirmed","Visible scene confirmed","No visible scene","Wrong colors / distorted"};
             JSONArray entries=new JSONArray();for(JSONObject f:feeds){String k=key(f);JSONObject r=new JSONObject(f.toString());r.put("userLabel",saved.getString(k+".label",""));r.put("userNotes",saved.getString(k+".notes",""));int v=saved.getInt(k+".verdict",0);r.put("userVerdict",verdicts[Math.max(0,Math.min(3,v))]);entries.put(r);}out.put("identifications",entries);
             try{out.put("sessionHistoryJsonl",Files.read(new File(Files.ROOT,"sessions.jsonl")));}catch(Exception ignored){}
             Files.write("report.json",out);
-            new AlertDialog.Builder(this).setTitle("Report saved").setMessage("Saved on the head unit:\n/data/nemesis/camera-probe/report.json\n\nWe can retrieve it over ADB. No images are included in the report.").setPositiveButton("OK",null).show();
-        }catch(Exception e){new AlertDialog.Builder(this).setMessage("Export failed: "+Files.error(e)).setPositiveButton("OK",null).show();}
+            exportId=UUID.randomUUID().toString();exportStarted=SystemClock.elapsedRealtime();
+            JSONObject request=new JSONObject();request.put("id",exportId);request.put("created",exportStarted);request.put("report",out);
+            Files.write("export-request.json",request);export.setEnabled(false);export.setText("Saving to USB…");
+        }catch(Exception e){exportId="";export.setEnabled(true);export.setText("Export report");new AlertDialog.Builder(this).setMessage("Export failed: "+Files.error(e)).setPositiveButton("OK",null).show();}
+    }
+    private void checkExportResult(){
+        if(exportId.isEmpty())return;
+        try{
+            JSONObject result=Files.json("export-result.json");
+            if(exportId.equals(result.optString("id"))){
+                exportId="";export.setEnabled(true);export.setText("Export report");
+                boolean ok=result.optBoolean("success");
+                new AlertDialog.Builder(this).setTitle(ok?"Report saved to USB":"USB export failed")
+                    .setMessage(ok?"Saved on your USB drive:\n"+result.optString("path")+"\n\nNo camera images are included. Wait for USB activity to finish before removing the drive.":result.optString("error"))
+                    .setPositiveButton("OK",null).show();return;
+            }
+        }catch(Exception ignored){}
+        if(SystemClock.elapsedRealtime()-exportStarted>30000){
+            exportId="";export.setEnabled(true);export.setText("Export report");
+            new AlertDialog.Builder(this).setTitle("USB export not confirmed").setMessage("The helper has not confirmed a saved report. Check the USB drive before retrying.").setPositiveButton("OK",null).show();
+        }
     }
     protected void onResume(){super.onResume();resumed=true;timer.post(poll);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);}
     protected void onPause(){resumed=false;timer.removeCallbacks(poll);end();super.onPause();}

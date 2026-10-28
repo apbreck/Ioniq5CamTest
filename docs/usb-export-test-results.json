@@ -1,0 +1,11 @@
+{
+  "missing_usb_error": true,
+  "helper_uid_1000_gid_1028": true,
+  "usb_export_after_preview": {
+    "passed": true,
+    "relativePath": "CameraFeedProbe/camera-probe-20261028-152814-9877a52b.json",
+    "frames": 136
+  },
+  "second_export_preserves_first": true,
+  "read_only_usb_error": true
+}

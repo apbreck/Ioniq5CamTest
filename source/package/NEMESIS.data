@@ -1,7 +1,7 @@
 [nemesis]
 id=camera.probe
 name=Camera Feed Probe
-version=0.1.0
+version=0.1.1
 types=application,service
 postinstall=scripts/postinstall.sh
 preuninstall=scripts/preuninstall.sh

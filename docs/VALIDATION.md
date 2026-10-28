@@ -25,3 +25,13 @@ Compact results: [emulator-test-results.json](emulator-test-results.json). The [
 - Recovery from native camera-service or driver faults.
 
 The emulator-only flag requires ro.kernel.qemu=1 and marks results as emulator data. Vehicle checks were not exercised by emulator tests. No automatic car-camera probing or raw CAN commands were used.
+
+## 0.1.1 USB report export
+
+- File-I/O unit tests cover intact JSON, committed temporary files, missing/unmounted roots, duplicate filenames, path validation, and secondary USB selection.
+- Android API 35 emulator tested with a tmpfs volume mounted at `/storage/usb0` to simulate removable storage. The emulator storage parent was made traversable to model the older head unit; this is test setup only, never done by the app.
+- Verified the helper runs as UID 1000 with storage GID 1028.
+- Verified missing-drive error, successful app-driven USB export after a live preview, exported final session state/history, distinct filenames preserving earlier exports, and a read-only-drive error.
+- Compact results: [usb-export-test-results.json](usb-export-test-results.json).
+
+These are simulated-storage tests, not a physical USB or vehicle test. Actual Gen5W mount layout and removable-drive behavior still require a parked hardware check.

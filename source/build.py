@@ -10,8 +10,9 @@ def run(args):subprocess.run([str(a) for a in args],check=True,cwd=root)
 classes=build/'classes';classes.mkdir(exist_ok=True)
 run(['javac','-source','8','-target','8','-Xlint:-options','-bootclasspath',android,'-d',classes,*sorted((root/'src').rglob('*.java'))])
 tests=build/'tests';tests.mkdir(exist_ok=True)
-run(['javac','-d',tests,root/'src/dev/cameraprobe/FrameStats.java',root/'tests/FrameStatsTest.java'])
+run(['javac','-d',tests,root/'src/dev/cameraprobe/FrameStats.java',root/'src/dev/cameraprobe/UsbReportWriter.java',root/'tests/FrameStatsTest.java',root/'tests/UsbReportWriterTest.java'])
 run(['java','-cp',tests,'FrameStatsTest'])
+run(['java','-cp',tests,'UsbReportWriterTest'])
 dex=build/'dex';dex.mkdir(exist_ok=True)
 run([bt/'d8','--min-api','19','--lib',android,'--output',dex,*sorted(classes.rglob('*.class'))])
 unsigned=build/'unsigned.apk'
@@ -30,11 +31,11 @@ shutil.copytree(root/'package',stage);(stage/'app').mkdir();shutil.copy2(apk,sta
 for notice in ['LICENSE','THIRD_PARTY_NOTICES.md']:
     shutil.copy2(root.parent/notice,stage/notice)
 with zipfile.ZipFile(stage/'probe-worker.jar','w',zipfile.ZIP_DEFLATED) as z:z.write(dex/'classes.dex','classes.dex')
-module=dist/'camera-probe-0.1.0.zip'
+module=dist/'camera-probe-0.1.1.zip'
 with zipfile.ZipFile(module,'w',zipfile.ZIP_DEFLATED) as z:
     for f in sorted(stage.rglob('*')):
         if f.is_file():z.write(f,str(f.relative_to(stage)))
-with zipfile.ZipFile(dist/'camera-probe-0.1.0-usb.zip','w',zipfile.ZIP_DEFLATED) as z:
+with zipfile.ZipFile(dist/'camera-probe-0.1.1-usb.zip','w',zipfile.ZIP_DEFLATED) as z:
     z.writestr('NEMESIS.data','[nemesis]\nversion=1\ntype=install\npath=packages/camera-probe.zip\n');z.write(module,'packages/camera-probe.zip')
     z.write(root.parent/'README.md','CAMERA-PROBE-README.md')
     z.write(root.parent/'LICENSE','LICENSE')

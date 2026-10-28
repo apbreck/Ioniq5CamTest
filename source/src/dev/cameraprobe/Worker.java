@@ -27,6 +27,8 @@ public final class Worker {
     private volatile String gate="Checking vehicle state";
     private volatile boolean allowed=false;
     private boolean emulated=false;
+    private volatile boolean exporting=false;
+    private String lastExport="";
 
     public static void main(String[] args) throws Exception {
         boolean test=args.length==1 && "--emulator".equals(args[0]);
@@ -35,7 +37,7 @@ public final class Worker {
         if(!test) dropRoot();
         Looper.prepareMainLooper();
         if(test){
-            Class<?> os=Class.forName("android.system.Os");os.getMethod("setgid",int.class).invoke(null,1000);os.getMethod("setuid",int.class).invoke(null,1000);
+            Class<?> os=Class.forName("android.system.Os");os.getMethod("setgid",int.class).invoke(null,1028);os.getMethod("setuid",int.class).invoke(null,1000);
             // Newer emulator Camera implementations require an Application context; Gen5W does not.
             Class<?> at=Class.forName("android.app.ActivityThread");Object thread=at.getMethod("systemMain").invoke(null);
             android.content.Context context=(android.content.Context)at.getMethod("getSystemContext").invoke(thread);
@@ -52,7 +54,8 @@ public final class Worker {
     private static void dropRoot() throws Exception {
         Object os=Class.forName("libcore.io.Libcore").getField("os").get(null);
         if((Integer)os.getClass().getMethod("getuid").invoke(os)==0){
-            os.getClass().getMethod("setgid",int.class).invoke(os,1000);
+            // Gen5W's USB FUSE volume is writable by sdcard_r (same group used by Rear Dashcam).
+            os.getClass().getMethod("setgid",int.class).invoke(os,1028);
             os.getClass().getMethod("setuid",int.class).invoke(os,1000);
         }
         if(android.os.Process.myUid()!=1000)throw new SecurityException("Worker must run as system UID 1000");
@@ -83,6 +86,7 @@ public final class Worker {
     }
     private void start() throws Exception {
         try{lastAttempt=Files.read(new File(Files.ROOT,"last-attempt")).trim();}catch(Exception ignored){}
+        try{lastExport=Files.read(new File(Files.ROOT,"last-export")).trim();}catch(Exception ignored){}
         enumerate();
         new Thread(new Runnable(){public void run(){while(true){
             long n=SystemClock.elapsedRealtime();
@@ -130,10 +134,37 @@ public final class Worker {
                 if(allowed)open(q);else reason=gate+". Press Start again after resolving this.";
             }
             if(active && mainBeat-started>=30000)stop("30-second test finished — press Start for another test");
+            checkExport();
             publish();
         }catch(Throwable t){stop("Test error — "+Files.error(t));}
         finally {mainBeat=SystemClock.elapsedRealtime();main.postDelayed(this,200);}
     }};
+    private void checkExport(){
+        if(exporting)return;
+        try{
+            JSONObject q=Files.json("export-request.json");
+            final String requestId=q.getString("id");long age=SystemClock.elapsedRealtime()-q.getLong("created");
+            if(age<0||age>30000||!requestId.matches("[a-zA-Z0-9-]{1,80}")||requestId.equals(lastExport))return;
+            if(active)stop("Stopped for USB report export");
+            final JSONObject report=q.getJSONObject("report");
+            report.put("lastStatus",state());
+            try{report.put("sessionHistoryJsonl",Files.read(new File(Files.ROOT,"sessions.jsonl")));}catch(Exception ignored){}
+            lastExport=requestId;Files.write(new File(Files.ROOT,"last-export"),requestId.getBytes("UTF-8"));
+            exporting=true;
+            new Thread(new Runnable(){public void run(){
+                JSONObject result=new JSONObject();
+                try{
+                    result.put("id",requestId);
+                    String stamp=new java.text.SimpleDateFormat("yyyyMMdd-HHmmss",java.util.Locale.US).format(new java.util.Date());
+                    String name="camera-probe-"+stamp+"-"+requestId.substring(0,Math.min(8,requestId.length()))+".json";
+                    File[] roots={new File("/storage/usb0"),new File("/storage/usb1"),new File("/storage/usb2")};
+                    File dest=UsbReportWriter.write(roots,Files.read(new File("/proc/mounts")),name,report.toString(2).getBytes("UTF-8"));
+                    result.put("success",true);result.put("path",dest.getPath());
+                }catch(Throwable t){try{result.put("success",false);result.put("error",Files.error(t));}catch(Exception ignored){}}
+                finally{try{Files.write("export-result.json",result);}catch(Exception ignored){}exporting=false;}
+            }},"camera-probe-usb-export").start();
+        }catch(Throwable ignored){}
+    }
     private void enumerate() {
         catalogue=new JSONArray();
         for(String name:Files.APIS){
