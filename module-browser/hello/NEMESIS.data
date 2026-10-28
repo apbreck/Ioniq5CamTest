@@ -1,0 +1,11 @@
+[nemesis]
+id=catalog.hello
+name=Catalog Hello Test
+version=1.0.0
+types=application
+postinstall=bin/installed.sh
+
+[app.0]
+kind=sh
+path=bin/hello.sh
+uid=system

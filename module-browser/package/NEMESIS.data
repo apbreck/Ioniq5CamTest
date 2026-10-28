@@ -1,0 +1,11 @@
+[nemesis]
+id=module.browser
+name=Nemesis Module Browser
+version=0.1.0
+types=application
+
+[app.0]
+kind=apk
+path=app/NemesisModuleBrowser.apk
+package=dev.nemesiscatalog
+component=dev.nemesiscatalog/dev.nemesiscatalog.BrowserActivity

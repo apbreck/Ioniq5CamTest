@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "repository": "apbreck/Ioniq5CamTest",
+  "modules": [
+    {
+      "id": "catalog.hello",
+      "name": "Catalog Hello Test",
+      "version": "1.0.0",
+      "publisher": "apbreck",
+      "description": "Tests downloading and installing a module. Writes one installed.txt marker inside its own package directory. No vehicle settings or services are changed.",
+      "compatibility": "Experimental package-manager test. Requires NEMESIS. Physical-car installation has not been verified.",
+      "firmwarePrefixes": [],
+      "downloadUrl": "https://github.com/apbreck/Ioniq5CamTest/releases/download/browser-v0.1.0/catalog-hello-1.0.0.zip",
+      "bytes": 1357,
+      "sha256": "c2d91e7119bbaea8480c6a39d43df0dcc31688dbb2db55907acdf08c986241f8"
+    },
+    {
+      "id": "camera.probe",
+      "name": "Camera Inventory (preview disabled)",
+      "version": "0.1.2",
+      "publisher": "apbreck",
+      "description": "Diagnostic-only camera inventory and USB reports. All vehicle preview attempts are disabled. This does not enable camera recording or 360 video.",
+      "compatibility": "Experimental. Declared firmware target only; not a confirmation of head-unit compatibility. Earlier preview releases have a known driver issue.",
+      "firmwarePrefixes": [
+        "NEEV23.USA.S5W_M.V015.012.260507"
+      ],
+      "downloadUrl": "https://github.com/apbreck/Ioniq5CamTest/releases/download/v0.1.2/camera-probe-0.1.2.zip",
+      "bytes": 56699,
+      "sha256": "b0192ae920ea97a1bf51d6d8446ab958930cfa907492b60dbf161778596c3427"
+    }
+  ]
+}

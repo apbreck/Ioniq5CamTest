@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.nemesiscatalog" android:versionCode="1" android:versionName="0.1.0">
+  <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="19"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <supports-screens android:anyDensity="true" android:smallScreens="true" android:normalScreens="true" android:largeScreens="true" android:xlargeScreens="true"/>
+  <application android:label="Nemesis Module Browser" android:theme="@android:style/Theme.Holo.NoActionBar" android:allowBackup="false" android:resizeableActivity="true">
+    <activity android:name=".BrowserActivity" android:exported="true" android:screenOrientation="landscape" android:configChanges="orientation|screenSize">
+      <meta-data android:name="android.max_aspect" android:value="3.0"/>
+      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+    </activity>
+  </application>
+</manifest>

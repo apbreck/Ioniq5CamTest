@@ -1,0 +1,10 @@
+{
+  "catalog_loaded": true,
+  "corrupt_download_never_invokes_installer": true,
+  "valid_download_and_metadata_verified": true,
+  "cancel_has_no_cli_side_effects": true,
+  "blocked_park_check_prevents_install": true,
+  "explicit_install_and_version_confirmation": true,
+  "installed_list_refresh": true,
+  "environment": "Android API 35 emulator, localhost HTTP catalog, fixture CLI; no actual NEMESIS or vehicle installation"
+}

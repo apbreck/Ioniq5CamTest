@@ -7,3 +7,7 @@ dist/
 *.idsig
 __pycache__/
 .DS_Store
+
+module-browser/build/
+module-browser/signing/
+module-browser/dist/
