@@ -1,3 +1,5 @@
+> **Compatibility correction:** The original vehicle preview path is unsupported. v0.1.0/v0.1.1 camera previews should not be run on a car. v0.1.2 disables vehicle capture. Earlier emulator results below are historical and do not establish hardware compatibility.
+
 # Validation for 0.1.0
 
 Status: experimental; not yet tested on a car. Target inferred from a read-only snapshot of a 2023 Ioniq 5 Limited running NEEV23.USA.S5W_M.V015.012.260507 (Android 4.4.2 / API 19). This does not establish compatibility with other Gen5W systems.
@@ -35,3 +37,12 @@ The emulator-only flag requires ro.kernel.qemu=1 and marks results as emulator d
 - Compact results: [usb-export-test-results.json](usb-export-test-results.json).
 
 These are simulated-storage tests, not a physical USB or vehicle test. Actual Gen5W mount layout and removable-drive behavior still require a parked hardware check.
+
+## 0.1.2 diagnostic-only correction
+
+- First owner feedback: three listed entries, no visible video, apparently still attempting connection. No diagnostic report was available; successful open/preview/frame delivery cannot be inferred.
+- Current RearDashcam source documents a vendor HAL hang for the texture/preview approach used by the original probe, and different package handling for app_process camera open. This is a confirmed implementation mismatch, not a confirmed diagnosis of the owner’s exact failure.
+- All vehicle camera-open and preview attempts are now refused. An emulator-only inventory mode exercises this same refusal branch with modern emulator context initialization.
+- Emulator checks: stale/legacy start request refused; no camera-open or preview-start confirmation; disabled preview button; missing vendor-interface error visible; USB report includes setup events and interface errors.
+- [Compact results](inventory-hotfix-test-results.json). USB storage in this test was simulated; camera capture was not attempted.
+- Actual compatible vehicle capture remains unimplemented and unvalidated.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 — 2026-10-28
+
+- Disable vehicle camera capture after finding an unsupported vendor preview path in the original implementation. Inventory and USB export remain available.
+- Surface interface enumeration errors and zero-camera results.
+- Record explicit setup stages, camera-open and preview-start confirmation, and frame evidence; include setup events in USB reports.
+- Flag v0.1.0 and v0.1.1 with the known compatibility issue. This is a diagnostic-only interim release, not a working vehicle-preview fix.
+
 ## 0.1.1 — 2026-10-28
 
 - Export report now saves a timestamped JSON file in `CameraFeedProbe/` on the first mounted, writable USB drive at `/storage/usb0`, `/storage/usb1`, or `/storage/usb2`.

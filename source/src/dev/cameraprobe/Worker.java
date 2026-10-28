@@ -29,9 +29,11 @@ public final class Worker {
     private boolean emulated=false;
     private volatile boolean exporting=false;
     private String lastExport="";
+    private String phase="inventory_only";
+    private boolean openConfirmed=false,previewStartConfirmed=false;
 
     public static void main(String[] args) throws Exception {
-        boolean test=args.length==1 && "--emulator".equals(args[0]);
+        boolean test=args.length==1 && ("--emulator".equals(args[0])||"--emulator-inventory".equals(args[0]));
         // Test bypass is accepted only on a genuine Android emulator, never on the vehicle.
         if(test && !("1".equals(prop("ro.kernel.qemu"))))throw new SecurityException("Emulator-only flag refused");
         if(!test) dropRoot();
@@ -46,7 +48,7 @@ public final class Worker {
             Field initial=at.getDeclaredField("mInitialApplication");initial.setAccessible(true);initial.set(thread,app);
         }
         try{android.os.Process.class.getMethod("setArgV0",String.class).invoke(null,"camera-probe-worker");}catch(Throwable ignored){}
-        Worker w=new Worker();w.emulated=test;w.start();Looper.loop();
+        Worker w=new Worker();w.emulated=test&&"--emulator".equals(args[0]);w.start();Looper.loop();
     }
     static String prop(String key) {
         try{return (String)Class.forName("android.os.SystemProperties").getMethod("get",String.class).invoke(null,key);}catch(Throwable t){return "";}
@@ -85,6 +87,7 @@ public final class Worker {
         }catch(Throwable t){gate="Blocked: vehicle state unavailable — "+Files.error(t);return false;}
     }
     private void start() throws Exception {
+        if(!emulated)reason="Vehicle preview disabled: unsupported camera-driver path. Inventory and USB export are available; no camera open attempted.";
         try{lastAttempt=Files.read(new File(Files.ROOT,"last-attempt")).trim();}catch(Exception ignored){}
         try{lastExport=Files.read(new File(Files.ROOT,"last-export")).trim();}catch(Exception ignored){}
         enumerate();
@@ -130,8 +133,9 @@ public final class Worker {
                 // Consume once before native open: a failed/hung worker never retries unattended.
                 lastAttempt=q.getString("session");Files.write(new File(Files.ROOT,"last-attempt"),lastAttempt.getBytes("UTF-8"));
                 session=lastAttempt;
-                allowed=checkGate();
-                if(allowed)open(q);else reason=gate+". Press Start again after resolving this.";
+                api=q.optString("api");id=q.optInt("id",-1);openConfirmed=previewStartConfirmed=false;
+                if(!emulated){phase="capture_disabled";reason="Vehicle preview disabled: unsupported camera-driver path. No camera open attempted.";recordStage();}
+                else{allowed=checkGate();if(allowed)open(q);else{phase="blocked";reason=gate+". Press Start again after resolving this.";recordStage();}}
             }
             if(active && mainBeat-started>=30000)stop("30-second test finished — press Start for another test");
             checkExport();
@@ -149,6 +153,7 @@ public final class Worker {
             final JSONObject report=q.getJSONObject("report");
             report.put("lastStatus",state());
             try{report.put("sessionHistoryJsonl",Files.read(new File(Files.ROOT,"sessions.jsonl")));}catch(Exception ignored){}
+            try{report.put("setupEventsJsonl",Files.read(new File(Files.ROOT,"setup-events.jsonl")));}catch(Exception ignored){}
             lastExport=requestId;Files.write(new File(Files.ROOT,"last-export"),requestId.getBytes("UTF-8"));
             exporting=true;
             new Thread(new Runnable(){public void run(){
@@ -171,6 +176,7 @@ public final class Worker {
             try {
                 Class<?> c=Class.forName(name);int n=(Integer)c.getMethod("getNumberOfCameras").invoke(null);
                 n=Math.max(0,Math.min(16,n));
+                if(n==0){JSONObject r=new JSONObject();r.put("api",name);r.put("error","Interface reports zero cameras");catalogue.put(r);}
                 for(int i=0;i<n;i++){
                     JSONObject r=new JSONObject();r.put("api",name);r.put("id",i);
                     r.put("identity",name+" #"+i);r.put("physicalCamera","Unidentified — verify visually");
@@ -186,8 +192,18 @@ public final class Worker {
         try{JSONObject o=new JSONObject();o.put("feeds",catalogue);o.put("firmware",prop("ro.build.product2"));Files.write("catalogue.json",o);}catch(Exception ignored){}
     }
     private Object call(String name,Class<?>[] types,Object... args)throws Exception{return cameraClass.getMethod(name,types).invoke(camera,args);}
+    private void markStage(String next){phase=next;publish();recordStage();}
+    private void recordStage(){
+        try{
+            File f=new File(Files.ROOT,"setup-events.jsonl");
+            if(f.length()>256*1024){File old=new File(Files.ROOT,"setup-events.previous.jsonl");old.delete();f.renameTo(old);}
+            JSONObject event=state();event.put("recordedAt",System.currentTimeMillis());
+            try(FileOutputStream out=new FileOutputStream(f,true)){out.write((event.toString()+"\n").getBytes("UTF-8"));out.getFD().sync();}f.setReadable(true,false);
+        }catch(Throwable ignored){}
+    }
     private void open(JSONObject q){
         try {
+            if(!emulated)throw new SecurityException("Vehicle camera capture disabled pending a compatible implementation");
             api=q.getString("api");id=q.getInt("id");
             if(!Arrays.asList(Files.APIS).contains(api))throw new IllegalArgumentException("Unsupported API");
             cameraClass=Class.forName(api);int count=(Integer)cameraClass.getMethod("getNumberOfCameras").invoke(null);
@@ -195,7 +211,9 @@ public final class Worker {
             frames=changes=0;previousHash=0;lastFrame=lastJpeg=started=durationMs=0;min=max=0;mean=variance=0;parameters="";jpegError="";assessment="Waiting for callbacks";
             new File(Files.ROOT,"preview.jpg").delete();opening=true;
             if(!checkGate())throw new IllegalStateException(gate);
-            camera=cameraClass.getMethod("open",int.class).invoke(null,id);
+            markStage("opening_camera");camera=cameraClass.getMethod("open",int.class).invoke(null,id);
+            if(camera==null)throw new IllegalStateException("Camera open returned null");
+            openConfirmed=true;markStage("reading_parameters");
             Object params=call("getParameters",new Class<?>[0]);Class<?> pc=params.getClass();
             parameters=(String)pc.getMethod("flatten").invoke(params);
             @SuppressWarnings("unchecked") List<Integer> formats=(List<Integer>)pc.getMethod("getSupportedPreviewFormats").invoke(params);
@@ -213,14 +231,14 @@ public final class Worker {
             if(pick==null)throw new IllegalStateException("No supported size at or below 1280x720 matching "+wanted);
             width=pick.getClass().getField("width").getInt(pick);height=pick.getClass().getField("height").getInt(pick);
             pc.getMethod("setPreviewSize",int.class,int.class).invoke(params,width,height);
-            call("setParameters",new Class<?>[]{pc},params);
+            markStage("configuring_parameters");call("setParameters",new Class<?>[]{pc},params);
             params=call("getParameters",new Class<?>[0]);parameters=(String)pc.getMethod("flatten").invoke(params);
             Object sz=pc.getMethod("getPreviewSize").invoke(params);
             width=sz.getClass().getField("width").getInt(sz);height=sz.getClass().getField("height").getInt(sz);
             format=(Integer)pc.getMethod("getPreviewFormat").invoke(params);
             if((long)width*height>1280*720)throw new IllegalStateException("HAL returned oversized preview");
             texture=new SurfaceTexture(0); // Offscreen sink; JPEG thumbnails are shown by the UI.
-            call("setPreviewTexture",new Class<?>[]{SurfaceTexture.class},texture);
+            markStage("attaching_preview_sink");call("setPreviewTexture",new Class<?>[]{SurfaceTexture.class},texture);
             Class<?> cb=Class.forName(api+"$PreviewCallback");
             callback=Proxy.newProxyInstance(cb.getClassLoader(),new Class<?>[]{cb},new InvocationHandler(){
                 public Object invoke(Object proxy,Method method,Object[] args){
@@ -242,11 +260,12 @@ public final class Worker {
             for(int i=0;i<3;i++)call("addCallbackBuffer",new Class<?>[]{byte[].class},new byte[bufferBytes]);
             started=SystemClock.elapsedRealtime();active=true;reason="Preview running";
             if(!checkGate())throw new IllegalStateException(gate);
-            call("startPreview",new Class<?>[0]);opening=false;
+            markStage("starting_preview");call("startPreview",new Class<?>[0]);previewStartConfirmed=true;opening=false;markStage("waiting_for_frames");
         }catch(Throwable t){stop("Could not preview — "+Files.error(t));}
     }
     private void frame(byte[] data){
         long now=SystemClock.elapsedRealtime();frames++;lastFrame=now;
+        if(frames==1)markStage("frames_received");
         if(now-lastJpeg<500)return;lastJpeg=now;
         try {
             FrameStats s=FrameStats.analyze(data,width,height,format);assessment=s.verdict();
@@ -268,6 +287,7 @@ public final class Worker {
         catch(Throwable t){why+="; release: "+Files.error(t);}
         finally{camera=null;callback=null;if(texture!=null){texture.release();texture=null;}opening=false;releasingSince=0;}
         reason=why;
+        phase=why.startsWith("Could not preview")?"failed":"stopped";recordStage();
         new File(Files.ROOT,"preview.jpg").delete();
         if(attempted)try{JSONObject r=state();r.put("endedAt",System.currentTimeMillis());
             File log=new File(Files.ROOT,"sessions.jsonl");
@@ -279,13 +299,14 @@ public final class Worker {
         JSONObject s=new JSONObject();long now=SystemClock.elapsedRealtime();
         s.put("updated",now);s.put("active",active);s.put("session",session);s.put("api",api);s.put("id",id);
         s.put("reason",reason);s.put("gate",gate);s.put("frames",frames);s.put("sampleChanges",changes);
+        s.put("phase",phase);s.put("opening",opening);s.put("openConfirmed",openConfirmed);s.put("previewStartConfirmed",previewStartConfirmed);s.put("captureEnabled",emulated);
         s.put("width",width);s.put("height",height);s.put("format",format);
         long duration=active?now-started:durationMs;s.put("durationMs",duration);
         s.put("fps",(double)frames/Math.max(0.001,duration/1000.0));
         s.put("lastFrameAgeMs",lastFrame==0?-1:now-lastFrame);
         s.put("evidence",active&&lastFrame==0&&now-started>3000?"No callback frames yet — feed may use a different hardware path":assessment);
         s.put("meanY",mean);s.put("varianceY",variance);s.put("minY",min);s.put("maxY",max);
-        s.put("previewNote",jpegError);s.put("parameters",parameters);s.put("emulator",emulated);
+        s.put("previewNote",jpegError);s.put("parameters",parameters);s.put("emulator","1".equals(prop("ro.kernel.qemu")));s.put("probeVersion","0.1.2");
         s.put("secondsLeft",active?Math.max(0,30-(now-started)/1000):0);return s;
     }
     private void publish(){try{Files.write("status.json",state());}catch(Throwable ignored){}}

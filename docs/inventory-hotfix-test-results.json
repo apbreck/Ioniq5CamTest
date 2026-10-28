@@ -1,0 +1,8 @@
+{
+  "legacy_start_request_refused": true,
+  "no_camera_open_confirmed": true,
+  "preview_button_disabled": true,
+  "interface_errors_visible": true,
+  "usb_report_includes_setup_events_and_interface_errors": true,
+  "test_environment": "Android API 35 emulator, inventory-only branch, simulated USB"
+}

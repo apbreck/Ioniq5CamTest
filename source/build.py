@@ -31,11 +31,11 @@ shutil.copytree(root/'package',stage);(stage/'app').mkdir();shutil.copy2(apk,sta
 for notice in ['LICENSE','THIRD_PARTY_NOTICES.md']:
     shutil.copy2(root.parent/notice,stage/notice)
 with zipfile.ZipFile(stage/'probe-worker.jar','w',zipfile.ZIP_DEFLATED) as z:z.write(dex/'classes.dex','classes.dex')
-module=dist/'camera-probe-0.1.1.zip'
+module=dist/'camera-probe-0.1.2.zip'
 with zipfile.ZipFile(module,'w',zipfile.ZIP_DEFLATED) as z:
     for f in sorted(stage.rglob('*')):
         if f.is_file():z.write(f,str(f.relative_to(stage)))
-with zipfile.ZipFile(dist/'camera-probe-0.1.1-usb.zip','w',zipfile.ZIP_DEFLATED) as z:
+with zipfile.ZipFile(dist/'camera-probe-0.1.2-usb.zip','w',zipfile.ZIP_DEFLATED) as z:
     z.writestr('NEMESIS.data','[nemesis]\nversion=1\ntype=install\npath=packages/camera-probe.zip\n');z.write(module,'packages/camera-probe.zip')
     z.write(root.parent/'README.md','CAMERA-PROBE-README.md')
     z.write(root.parent/'LICENSE','LICENSE')

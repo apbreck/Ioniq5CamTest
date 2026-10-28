@@ -15,6 +15,7 @@ public final class MainActivity extends Activity {
     private final ArrayList<JSONObject> feeds=new ArrayList<JSONObject>();
     private Spinner feed,size,verdict;
     private TextView status,identity,evidence;
+    private TextView interfaceNotes;
     private ImageView image;
     private EditText label,notes;
     private Button start;
@@ -35,11 +36,12 @@ public final class MainActivity extends Activity {
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);root.addView(top);
         TextView title=text("Camera Feed Probe",25,foreground);top.addView(title,new LinearLayout.LayoutParams(0,52,1));
         export=button("Export report");top.addView(export);export.setOnClickListener(new View.OnClickListener(){public void onClick(View v){exportReport();}});
-        TextView hint=text("Parked tests • one feed at a time • 30 seconds per test • factory camera takes priority",15,subtle);root.addView(hint);
+        TextView hint=text("Diagnostic inventory • vehicle preview disabled • USB report export",15,subtle);root.addView(hint);
         LinearLayout body=new LinearLayout(this);root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         ScrollView controls=new ScrollView(this);body.addView(controls,new LinearLayout.LayoutParams(430,-1));
         LinearLayout left=new LinearLayout(this);left.setPadding(0,12,20,0);left.setOrientation(1);controls.addView(left);
         left.addView(text("Feed interface / ID",16,subtle));feed=new Spinner(this);left.addView(feed);
+        interfaceNotes=text("",14,Color.rgb(245,190,100));left.addView(interfaceNotes);
         feed.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onNothingSelected(android.widget.AdapterView<?> p){}public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){selectionChanged();}});
         left.addView(text("Preview size",16,subtle));size=new Spinner(this);size.setAdapter(adapter(new String[]{"auto","640x480","720x480","1280x720"}));left.addView(size);
         LinearLayout buttons=new LinearLayout(this);left.addView(buttons);start=button("Start test");buttons.addView(start,new LinearLayout.LayoutParams(0,64,1));
@@ -66,17 +68,18 @@ public final class MainActivity extends Activity {
     private JSONObject selected(){int i=feed.getSelectedItemPosition();return i>=0&&i<feeds.size()?feeds.get(i):null;}
     private void loadFeeds(){
         if(requested)end();feeds.clear();ArrayList<String> names=new ArrayList<String>();
-        try{JSONArray a=Files.json("catalogue.json").getJSONArray("feeds");for(int i=0;i<a.length();i++){JSONObject f=a.getJSONObject(i);if(!f.has("id"))continue;feeds.add(f);String name=f.getString("api").endsWith("RearCamera")?"RearCamera":"Camera";names.add(name+" #"+f.getInt("id")+" • metadata "+(f.optInt("facing",-1)==0?"BACK":f.optInt("facing",-1)==1?"FRONT":"unknown"));}}
+        try{StringBuilder errors=new StringBuilder();JSONArray a=Files.json("catalogue.json").getJSONArray("feeds");for(int i=0;i<a.length();i++){JSONObject f=a.getJSONObject(i);if(!f.has("id")){errors.append(f.optString("api")).append(": ").append(f.optString("error")).append("\n");continue;}feeds.add(f);String name=f.getString("api").endsWith("RearCamera")?"RearCamera":"Camera";names.add(name+" #"+f.getInt("id")+" • metadata "+(f.optInt("facing",-1)==0?"BACK":f.optInt("facing",-1)==1?"FRONT":"unknown"));}interfaceNotes.setText(errors.toString());}
         catch(Exception e){status.setText("Helper catalogue unavailable. Install/start the Nemesis package first.");}
-        feed.setAdapter(adapter(names.toArray(new String[0])));start.setEnabled(!feeds.isEmpty());
+        feed.setAdapter(adapter(names.toArray(new String[0])));start.setEnabled(false);
     }
     private void selectionChanged(){
         JSONObject f=selected();if(f==null)return;String k=key(f);if(k.equals(selection))return;
         if(requested)end();selection=k;label.setText(saved.getString(k+".label",""));notes.setText(saved.getString(k+".notes",""));verdict.setSelection(saved.getInt(k+".verdict",0));
         identity.setText(f.optString("api")+" • ID "+f.optInt("id")+" • orientation "+f.optInt("orientation",0)+"°");
-        clearImage();evidence.setText("Untested selection — press Start");
+        clearImage();evidence.setText(lastStatus.optBoolean("captureEnabled")?"Untested selection — press Start":"Inventory only — camera connection and video are unverified");
     }
     private void begin(){
+        if(!lastStatus.optBoolean("captureEnabled",false)){evidence.setText("Preview disabled on vehicle hardware; export the inventory report instead.");return;}
         JSONObject f=selected();if(f==null)return;
         requestApi=f.optString("api");requestId=f.optInt("id");requestSize=String.valueOf(size.getSelectedItem());
         session=UUID.randomUUID().toString();requested=true;clearImage();evidence.setText("Requesting preview…");writeRequest();
@@ -96,11 +99,13 @@ public final class MainActivity extends Activity {
             long age=SystemClock.elapsedRealtime()-s.getLong("updated");
             if(age<0||age>5000){status.setText("Helper not responding. Preview lease will expire.");if(requested)end();}
             else {
-                start.setEnabled(!feeds.isEmpty());status.setText(s.optString("gate")+"\n"+s.optString("reason")+(s.optBoolean("active")?" • "+s.optInt("secondsLeft")+"s left":""));
+                boolean enabled=s.optBoolean("captureEnabled",false);start.setEnabled(enabled&&!feeds.isEmpty());start.setText(enabled?"Start test":"Preview disabled");
+                if(!enabled)evidence.setText("Inventory only — no camera open attempted; video is not tested.");
+                status.setText("Stage: "+s.optString("phase")+" • Open confirmed: "+s.optBoolean("openConfirmed")+" • Preview start confirmed: "+s.optBoolean("previewStartConfirmed")+"\n"+s.optString("reason")+(s.optBoolean("active")?" • "+s.optInt("secondsLeft")+"s left":""));
                 JSONObject f=selected();boolean match=f!=null&&f.optString("api").equals(s.optString("api"))&&f.optInt("id")==s.optInt("id");
                 if(match){
-                    evidence.setText(s.optString("evidence")+String.format(Locale.US,"\n%d callback frames • %.1f fps • %d sample changes • %dx%d • format %d",s.optLong("frames"),s.optDouble("fps"),s.optLong("sampleChanges"),s.optInt("width"),s.optInt("height"),s.optInt("format"))+"\n"+s.optString("previewNote"));
-                    if(requested&&session.equals(s.optString("session"))&&!s.optBoolean("active")){requested=false;writeRequest();}
+                    evidence.setText(enabled?s.optString("evidence")+String.format(Locale.US,"\n%d callback frames • %.1f fps • %d sample changes • %dx%d • format %d",s.optLong("frames"),s.optDouble("fps"),s.optLong("sampleChanges"),s.optInt("width"),s.optInt("height"),s.optInt("format"))+"\n"+s.optString("previewNote"):"Inventory only — no camera open attempted; video is not tested.");
+                    if(requested&&session.equals(s.optString("session"))&&!s.optBoolean("active")&&!s.optBoolean("opening")){requested=false;writeRequest();}
                     long frameAge=s.optLong("lastFrameAgeMs",-1);
                     if(s.optBoolean("active")&&frameAge>=0&&frameAge<1500){
                         File jpg=new File(Files.ROOT,"preview.jpg");long m=jpg.lastModified();
