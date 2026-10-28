@@ -1,13 +1,14 @@
 # Ioniq5CamTest — Camera Feed Probe 0.1.2
 
-## Module Browser prototype
+## RepoMan module browser
 
-A separate **Nemesis Module Browser** app now uses this repository as a test catalog. It supports Wi-Fi catalog retrieval, verified module downloads, explicit install confirmation, a parked-state check, and installed-version confirmation through NEMESIS. Start with the small Hello package. **The browser has only been tested in an emulator with a simulated installer; head-unit installation is unverified.**
+The module browser has moved to **[apbreck/RepoMan](https://github.com/apbreck/RepoMan)** and is now called **RepoMan**. Its source, catalog, and new releases live there. Camera Inventory remains in this repository and is listed in the RepoMan catalog.
 
-[Browser installation and limits](module-browser/README.md) · [Browser prerelease](https://github.com/apbreck/Ioniq5CamTest/releases/tag/browser-v0.1.0) · [Test catalog](module-catalog.json)
+[RepoMan installation and limits](https://github.com/apbreck/RepoMan#readme) · [RepoMan prerelease](https://github.com/apbreck/RepoMan/releases/tag/v0.1.1)
+
+The original browser source and catalog remain here for existing prototype users. RepoMan keeps the original app identity and signing key for updates. **Vehicle installation remains unverified.**
 
 ---
-
 
 **Diagnostic-only interim release: vehicle camera capture is disabled.** Camera inventory and USB reports remain available. This release does not verify whether any physical feed contains video.
 

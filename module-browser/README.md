@@ -1,3 +1,5 @@
+> **Moved:** This prototype is now **[RepoMan](https://github.com/apbreck/RepoMan)**. Use that repository for current source, catalog, and [installers](https://github.com/apbreck/RepoMan/releases/tag/v0.1.1). The content below documents the original 0.1.0 prototype.
+
 # Nemesis Module Browser 0.1.0
 
 Experimental on-car module browser using `apbreck/Ioniq5CamTest` as its public test catalog. **Not yet tested on vehicle hardware.** The catalog is at the repository root, `module-catalog.json`.
