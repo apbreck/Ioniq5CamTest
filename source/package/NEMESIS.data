@@ -1,0 +1,20 @@
+[nemesis]
+id=camera.probe
+name=Camera Feed Probe
+version=0.1.0
+types=application,service
+postinstall=scripts/postinstall.sh
+preuninstall=scripts/preuninstall.sh
+
+[app.0]
+kind=apk
+path=app/CameraFeedProbe.apk
+package=dev.cameraprobe
+component=dev.cameraprobe/dev.cameraprobe.MainActivity
+
+[service.0]
+name=worker
+kind=sh
+path=scripts/worker.sh
+uid=root
+mode=restart

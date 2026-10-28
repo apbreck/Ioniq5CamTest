@@ -1,0 +1,17 @@
+{
+  "no_automatic_capture": true,
+  "reusable_buffer_preview": {
+    "frames": 7,
+    "format": 17,
+    "size": [
+      720,
+      480
+    ]
+  },
+  "30_second_limit": {
+    "frames": 341,
+    "passed": true
+  },
+  "on_pause_release": true,
+  "saved_identity_and_report_export": true
+}
